@@ -1,0 +1,101 @@
+{ parameter
+    (or (or (contract %push
+               (big_map
+                  string
+                  (pair (pair (pair (nat %close) (timestamp %end)) (nat %high) (nat %low))
+                        (pair (nat %open) (timestamp %start))
+                        (nat %volume))))
+            (signature %revoke))
+        (map %update
+           string
+           (pair signature
+                 (pair (pair (nat %close) (timestamp %end)) (nat %high) (nat %low))
+                 (pair (nat %open) (timestamp %start))
+                 (nat %volume)))) ;
+  storage
+    (pair (big_map %oracleData
+             string
+             (pair (pair (pair (nat %close) (timestamp %end)) (nat %high) (nat %low))
+                   (pair (nat %open) (timestamp %start))
+                   (nat %volume)))
+          (option %publicKey key)) ;
+  code { UNPAIR ;
+         IF_LEFT
+           { IF_LEFT
+               { PUSH mutez 0 ;
+                 DUP 3 ;
+                 CAR ;
+                 TRANSFER_TOKENS ;
+                 SWAP ;
+                 NIL operation ;
+                 DIG 2 ;
+                 CONS ;
+                 PAIR }
+               { NONE key ;
+                 PACK ;
+                 DUP 3 ;
+                 CDR ;
+                 IF_NONE
+                   { DROP 2 ; NIL operation ; PAIR }
+                   { SWAP ;
+                     DUG 2 ;
+                     CHECK_SIGNATURE ;
+                     IF { NONE key ;
+                          UPDATE 2 ;
+                          EMPTY_BIG_MAP
+                            string
+                            (pair (pair (pair nat timestamp) nat nat) (pair nat timestamp) nat) ;
+                          UPDATE 1 ;
+                          NIL operation ;
+                          PAIR }
+                        { DROP ; PUSH string "bad sig" ; FAILWITH } } } }
+           { DUP 2 ;
+             CDR ;
+             IF_NONE { PUSH string "Oracle is revoked" ; FAILWITH } {} ;
+             DUP 3 ;
+             CAR ;
+             DIG 2 ;
+             ITER { UNPAIR ;
+                    SWAP ;
+                    UNPAIR ;
+                    DUP 2 ;
+                    DUP 4 ;
+                    PAIR ;
+                    PACK ;
+                    SWAP ;
+                    DUP 6 ;
+                    CHECK_SIGNATURE ;
+                    IF {} { PUSH string "bad sig" ; FAILWITH } ;
+                    DUP 3 ;
+                    DUP 3 ;
+                    GET ;
+                    IF_NONE
+                      { DIG 2 ; SWAP ; DIG 2 ; SWAP ; SOME ; SWAP ; UPDATE }
+                      { DUP 2 ;
+                        CDR ;
+                        CAR ;
+                        CDR ;
+                        SWAP ;
+                        CDR ;
+                        CAR ;
+                        CDR ;
+                        COMPARE ;
+                        GE ;
+                        IF { DROP 2 } { DIG 2 ; SWAP ; DIG 2 ; SWAP ; SOME ; SWAP ; UPDATE } } } ;
+             SWAP ;
+             DROP ;
+             UPDATE 1 ;
+             NIL operation ;
+             PAIR } } ;
+  view "getPrice"
+       string
+       (pair (pair (pair (nat %close) (timestamp %end)) (nat %high) (nat %low))
+             (pair (nat %open) (timestamp %start))
+             (nat %volume))
+       { UNPAIR ;
+         SWAP ;
+         CAR ;
+         SWAP ;
+         GET ;
+         IF_NONE { PUSH string "Asset not found" ; FAILWITH } {} } }
+
