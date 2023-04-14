@@ -41,7 +41,7 @@ module Storage = struct
 		oracleData : (string, oracleData) big_map;
 	}
 
-	let init key initialData () = {
+	let init key initialData () : t = {
 		publicKey = Some key;
 		oracleData = initialData;
 	}
